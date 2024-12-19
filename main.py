@@ -1,5 +1,6 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
+from tkinter import simpledialog
 from Planificador import run_simulation
 from Procesos import Process
 from Recursos import Recurso
@@ -56,6 +57,12 @@ class ProcessManagerApp:
         tk.Button(controls, text="Ejecutar Simulación", command=self.run_simulation).pack(side=tk.LEFT, padx=5)
         tk.Button(controls, text="Eliminar Proceso", command=self.delete_process).pack(side=tk.LEFT, padx=5)
 
+        # Selector de planificador
+        tk.Label(controls, text="Planificador:").pack(side=tk.LEFT, padx=5)
+        self.scheduler_choice = ttk.Combobox(controls, values=["FIFO", "SJF", "Round Robin", "Prioridad"])
+        self.scheduler_choice.pack(side=tk.LEFT, padx=5)
+
+
     def add_process(self):
         try:
             burst_time = int(self.burst_entry.get())
@@ -91,8 +98,26 @@ class ProcessManagerApp:
             messagebox.showerror("Error", "No hay procesos para simular.")
             return
 
-        run_simulation(self.processes, recursos_global, CPUS)
-        self.update_process_table()
+        choice_map = {"FIFO": 1, "SJF": 2, "Round Robin": 3, "Prioridad": 4}
+        choice = self.scheduler_choice.get()
+        if choice not in choice_map:
+            messagebox.showerror("Error", "Seleccione un planificador válido.")
+            return
+
+        choice_code = choice_map[choice]
+        quantum = None
+        if choice_code == 3:  # Round Robin
+            quantum = simpledialog.askinteger("Quantum", "Ingrese el valor de Quantum:")
+            if quantum is None or quantum <= 0:
+                messagebox.showerror("Error", "Quantum no válido.")
+                return
+
+        try:
+            run_simulation(self.processes, recursos_global, CPUS, choice_code, quantum)
+            self.update_process_table()
+        except Exception as e:
+            messagebox.showerror("Error", f"Se produjo un error durante la simulación: {e}")
+
 
     def update_process_table(self):
         for item in self.tree.get_children():

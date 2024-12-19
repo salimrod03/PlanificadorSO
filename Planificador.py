@@ -7,7 +7,7 @@ from SJF import sjf_scheduling
 from Procesos import Process
 from Recursos import Recurso
 
-def run_simulation():
+def run_simulation(processes, recurso, cpus, choice, quantum=None):
     print("\n============= Planificador de Procesos ============= ")
 
     total_recursos = int(input("Ingresa la cantidad total de recursos disponibles: "))
@@ -40,7 +40,8 @@ def run_simulation():
         sjf_scheduling(processes, recurso)
         print("\n-----------------------------")
     elif choice == 3:
-        quantum = int(input("Ingresa valor del Quantum: "))
+        if quantum is None:
+            raise ValueError("Se requiere un valor de quantum para el planificador Round Robin.")
         print("\n------- Ejecución Round Robin -------")
         round_robin_scheduling(processes, quantum, recurso)
         print("\n-------------------------------------")
@@ -49,7 +50,7 @@ def run_simulation():
         priority_scheduling(processes, recurso)
         print("\n------------------------------------")
     else:
-        print("Opción no válida.")
-
+        raise ValueError("Opción no válida.")
+    
 if __name__ == "__main__":
     run_simulation()

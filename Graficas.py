@@ -59,7 +59,7 @@ def draw_gantt_chart(processes):
     gnt.set_yticks([i + 0.5 for i in range(len(processes))])
     gnt.set_yticklabels([f'Proceso {p.pid}' for p in processes])
 
-  for i, process in enumerate(processes):
+    for i, process in enumerate(processes):
         start_time = process.start_time
         duration = process.tiempo_ejecucion
         gnt.broken_barh([(start_time, duration)], (i, 0.9), facecolors=('orange'))
