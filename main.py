@@ -3,8 +3,10 @@ from tkinter import ttk, messagebox, simpledialog
 from Procesos import Process
 from Recursos import Recurso
 from Graficas import calculate_metrics
-
+import os
+import psutil
 import time
+import random
 
 CPUS = 4
 TOTAL_RECURSOS = 10
@@ -39,7 +41,6 @@ class ProcessManagerApp:
         frame = tk.Frame(self.root)
         frame.pack(pady=10, padx=10)
 
-        # Visualización de recursos y CPUs disponibles
         self.status_label = tk.Label(
             self.root,
             text=f"Recursos disponibles: {self.available_resources}/{TOTAL_RECURSOS} - CPUs disponibles: {self.available_cpus}/{CPUS}",
@@ -47,7 +48,6 @@ class ProcessManagerApp:
         )
         self.status_label.pack(pady=10)
 
-        # Tabla de procesos
         self.tree = ttk.Treeview(frame, columns=("PID", "Llegada", "Ejecución", "Prioridad", "Recursos", "Estado", "Tiempo Restante"), show="headings")
         for col in self.tree["columns"]:
             self.tree.heading(col, text=col)
@@ -57,11 +57,23 @@ class ProcessManagerApp:
         self.tree.configure(yscroll=scrollbar.set)
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
 
-        # Canvas para animaciones
-        self.canvas = tk.Canvas(self.root, width=600, height=200, bg="white")
-        self.canvas.pack(pady=10)
+        canvas_frame = tk.Frame(self.root)
+        canvas_frame.pack(pady=10, fill=tk.BOTH, expand=True)
 
-        # Formulario para agregar procesos
+        self.canvas = tk.Canvas(canvas_frame, bg="white")
+        self.canvas.grid(row=0, column=0, sticky="nsew")  
+
+        v_scrollbar = ttk.Scrollbar(canvas_frame, orient=tk.VERTICAL, command=self.canvas.yview)
+        v_scrollbar.grid(row=0, column=1, sticky="ns")  
+
+        h_scrollbar = ttk.Scrollbar(canvas_frame, orient=tk.HORIZONTAL, command=self.canvas.xview)
+        h_scrollbar.grid(row=1, column=0, sticky="ew") 
+
+        self.canvas.configure(xscrollcommand=h_scrollbar.set, yscrollcommand=v_scrollbar.set)
+
+        canvas_frame.grid_rowconfigure(0, weight=1)
+        canvas_frame.grid_columnconfigure(0, weight=1)
+
         form = tk.Frame(self.root)
         form.pack(pady=10)
 
@@ -79,7 +91,6 @@ class ProcessManagerApp:
 
         tk.Button(form, text="Agregar Proceso", command=self.add_process).grid(row=3, column=0, columnspan=2, pady=5)
 
-        # Botones de control
         controls = tk.Frame(self.root)
         controls.pack(pady=10)
 
@@ -89,6 +100,39 @@ class ProcessManagerApp:
 
         tk.Button(controls, text="Ejecutar", command=self.run_selected_scheduler).pack(side=tk.LEFT, padx=5)
         tk.Button(controls, text="Eliminar Proceso", command=self.delete_process).pack(side=tk.LEFT, padx=5)
+
+        tk.Button(controls, text="Cargar Procesos Activos", command=self.add_system_processes).pack(side=tk.LEFT, padx=5)
+
+    def add_system_processes(self):
+        try:
+            active_processes = psutil.process_iter(['pid', 'name', 'cpu_percent'])
+            for priority, proc in enumerate(active_processes):
+                try:
+                    pid = proc.info['pid']
+                    name = proc.info['name']
+                    cpu_usage = proc.info['cpu_percent'] or 1
+                    burst_time = max(1, int(cpu_usage))  # Usar CPU usage como tiempo de ejecución
+                    resources = random.randint(5, TOTAL_RECURSOS)  # Recursos asignados arbitrarios
+
+                    process = Process(
+                        pid=pid,
+                        tiempo_llegada=0,
+                        tiempo_ejecucion=burst_time,
+                        prioridad=priority + 1,
+                        recursos_necesarios=resources
+                    )
+                    process.tiempo_restante = burst_time
+                    self.processes.append(process)
+
+                    # Actualizar la tabla y canvas
+                    self.tree.insert("", "end", values=(pid, 0, burst_time, priority + 1, resources, "READY", burst_time))
+                    self.add_to_canvas(process)
+
+
+                except (psutil.NoSuchProcess, psutil.AccessDenied):
+                    continue
+        except Exception as e:
+            messagebox.showerror("Error", f"No se pudieron cargar los procesos: {str(e)}")
 
     def add_process(self):
         try:
@@ -107,6 +151,7 @@ class ProcessManagerApp:
 
             self.tree.insert("", "end", values=(pid, 0, burst_time, priority, resources, "READY", burst_time))
             self.add_to_canvas(process)
+            self.canvas.config(scrollregion=self.canvas.bbox("all"))
             self.clear_entries()
         except ValueError:
             messagebox.showerror("Error", "Por favor, ingrese valores válidos.")
@@ -116,6 +161,9 @@ class ProcessManagerApp:
         rect = self.canvas.create_rectangle(x, 50, x + 40, 90, fill="blue")
         text = self.canvas.create_text(x + 20, 70, text=f"P{process.pid}\n{process.tiempo_restante}s", fill="white")
         self.canvas_processes.append((process, rect, text))
+        self.canvas.update_idletasks()  
+        self.canvas.config(scrollregion=self.canvas.bbox("all"))
+
 
     def delete_process(self):
         selected_item = self.tree.selection()
@@ -145,6 +193,7 @@ class ProcessManagerApp:
     def update_canvas(self):
         for process, rect, text in self.canvas_processes:
             self.canvas.itemconfig(text, text=f"P{process.pid}\n{process.tiempo_restante}s")
+            self.canvas.config(scrollregion=self.canvas.bbox("all"))
 
 
     def update_status_label(self):
@@ -209,6 +258,7 @@ class ProcessManagerApp:
         self.available_resources += process.recursos_necesarios
         self.available_cpus += 1
         self.update_status_label()
+        process.completion_time = time.time()
 
         process.set_estado("FINISHED")
         self.update_tree_status(process.pid, "FINISHED")
@@ -238,7 +288,11 @@ class ProcessManagerApp:
             if p == process:
                 break
 
-        if recursos_global.asignar(process.recursos_necesarios):
+        if recursos_global.asignar(process.recursos_necesarios) and self.available_cpus > 0:
+            self.available_resources -= process.recursos_necesarios
+            self.available_cpus -= 1
+            self.update_status_label()
+
             process.set_estado("RUNNING")
             self.update_tree_status(process.pid, "RUNNING")
             self.canvas.itemconfig(rect, fill="green")
@@ -255,12 +309,15 @@ class ProcessManagerApp:
 
     def finish_process_sjf(self, process, rect, text, index):
         recursos_global.liberar(process.recursos_necesarios)
+        self.available_resources += process.recursos_necesarios
+        self.available_cpus += 1
+        self.update_status_label()
+        process.completion_time = time.time()
+
         process.set_estado("FINISHED")
         self.update_tree_status(process.pid, "FINISHED")
         self.canvas.itemconfig(rect, fill="gray")
         self.simulate_sjf(index + 1)
-
-
 
 
     def run_rr_simulation(self):
@@ -310,6 +367,7 @@ class ProcessManagerApp:
 
     def finish_rr_quantum(self, process, rect, text, index, quantum):
         if process.tiempo_restante == 0:
+            process.completion_time = time.time()
             process.set_estado("TERMINATED")
             self.update_tree_status(process.pid, "TERMINATED")
             self.canvas.itemconfig(rect, fill="gray")
@@ -345,7 +403,11 @@ class ProcessManagerApp:
             if p == process:
                 break
 
-        if recursos_global.asignar(process.recursos_necesarios):
+        if recursos_global.asignar(process.recursos_necesarios) and self.available_cpus > 0:
+            self.available_resources -= process.recursos_necesarios
+            self.available_cpus -= 1
+            self.update_status_label()
+
             process.set_estado("RUNNING")
             self.update_tree_status(process.pid, "RUNNING")
             self.canvas.itemconfig(rect, fill="green")
@@ -362,6 +424,11 @@ class ProcessManagerApp:
 
     def finish_process_priority(self, process, rect, text, index):
         recursos_global.liberar(process.recursos_necesarios)
+        self.available_resources += process.recursos_necesarios
+        self.available_cpus += 1
+        self.update_status_label()
+        process.completion_time = time.time()
+        
         process.set_estado("FINISHED")
         self.update_tree_status(process.pid, "FINISHED")
         self.canvas.itemconfig(rect, fill="gray")
@@ -391,7 +458,6 @@ class ProcessManagerApp:
                 break
 
     def update_ui(self):
-    # Actualiza la tabla y el canvas cada segundo
         for process in self.processes:
             if process.estado == "RUNNING" and process.tiempo_restante > 0:
                 process.tiempo_restante -= 1
@@ -409,6 +475,7 @@ class ProcessManagerApp:
         for process, rect, text in self.canvas_processes:
             if process.pid == pid:
                 self.canvas.itemconfig(text, text=f"P{pid}\n{remaining_time}s")
+                self.canvas.config(scrollregion=self.canvas.bbox("all"))
                 break
 
     def clear_entries(self):

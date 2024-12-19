@@ -15,7 +15,12 @@ def calculate_metrics(processes):
     for i, process in enumerate(completed_processes):
         turnaround_time = process.completion_time - process.tiempo_llegada
         waiting_time = turnaround_time - process.tiempo_ejecucion
-        response_time = process.start_time - process.tiempo_llegada
+        
+        
+        if process.start_time is not None and process.tiempo_llegada is not None:
+            response_time = process.start_time - process.tiempo_llegada
+        else:
+            response_time = 0  
         
         turnaround_times.append(turnaround_time)
         waiting_times.append(waiting_time)
@@ -26,9 +31,20 @@ def calculate_metrics(processes):
         print(f"Tiempo de Espera (Waiting Time): {waiting_time}")
         print(f"Tiempo de Respuesta (Response Time): {response_time}")
 
-    avg_turnaround = sum(turnaround_times) / len(turnaround_times)
-    avg_waiting = sum(waiting_times) / len(waiting_times)
-    avg_response = sum(response_times) / len(response_times)
+    if len(turnaround_times) > 0:
+        avg_turnaround = sum(turnaround_times) / len(turnaround_times)
+    else:
+        avg_turnaround = 0
+    
+    if len(waiting_times) > 0:
+        avg_waiting = sum(waiting_times) / len(waiting_times)
+    else:
+        avg_waiting = 0
+
+    if len(response_times) > 0:
+        avg_response = sum(response_times) / len(response_times)
+    else:
+        avg_response = 0
     
     print("\n--- Métricas Promedio ---")
     print(f"Promedio de Tiempo Requerido (Turnaround Time): {avg_turnaround}")
@@ -37,6 +53,7 @@ def calculate_metrics(processes):
 
     visualize_metrics(turnaround_times, waiting_times, response_times, completed_processes)
     draw_gantt_chart(completed_processes)
+
 
 def visualize_metrics(turnaround_times, waiting_times, response_times, processes):
     labels = [f"P{process.pid}" for process in processes]
