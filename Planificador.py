@@ -10,27 +10,11 @@ from Recursos import Recurso
 def run_simulation(processes, recurso, cpus, choice, quantum=None):
     print("\n============= Planificador de Procesos ============= ")
 
-    total_recursos = int(input("Ingresa la cantidad total de recursos disponibles: "))
-    recurso = Recurso("Recurso1", total_recursos)
-    n = int(input("¿Cuántos procesos desea simular?\n"))
-    
-    processes = []
-    for i in range(n):
-        burst_time = int(input(f"Ingresa el tiempo de ráfaga para el proceso {i+1}: "))
-        priority = int(input(f"Ingresa la prioridad para el proceso {i+1}: "))
-        recursos_necesarios = int(input(f"¿Cuántos recursos necesita el proceso {i+1}? "))
-        process = Process(pid=i+1, tiempo_llegada=0, tiempo_ejecucion=burst_time, prioridad=priority, recursos_necesarios=recursos_necesarios)
-        processes.append(process)
+    # Valida si hay procesos
+    if not processes:
+        raise ValueError("No hay procesos para simular.")
 
-    print("================= Elige una opción ================= ")
-    print("1. FIFO")
-    print("2. SJF")
-    print("3. Round Robin")
-    print("4. Prioridad")
-    print("==================================================== \n")
-
-    choice = int(input("Ingresa el número de tu elección: "))
-
+    # Lógica del planificador según la elección
     if choice == 1:
         print("\n------- Ejecución FIFO -------")
         fifo_scheduling(processes, recurso)
