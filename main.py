@@ -185,7 +185,11 @@ class ProcessManagerApp:
             if p == process:
                 break
 
-        if recursos_global.asignar(process.recursos_necesarios):
+        if recursos_global.asignar(process.recursos_necesarios) and self.available_cpus > 0:
+            self.available_resources -= process.recursos_necesarios
+            self.available_cpus -= 1
+            self.update_status_label()
+
             process.set_estado("RUNNING")
             self.update_tree_status(process.pid, "RUNNING")
             self.canvas.itemconfig(rect, fill="green")
@@ -202,10 +206,15 @@ class ProcessManagerApp:
 
     def finish_process_fifo(self, process, rect, text, index):
         recursos_global.liberar(process.recursos_necesarios)
+        self.available_resources += process.recursos_necesarios
+        self.available_cpus += 1
+        self.update_status_label()
+
         process.set_estado("FINISHED")
         self.update_tree_status(process.pid, "FINISHED")
         self.canvas.itemconfig(rect, fill="gray")
         self.root.after(1000, lambda: self.simulate_fifo(index + 1))
+
 
     def run_sjf_simulation(self):
         if not self.processes:
@@ -279,7 +288,10 @@ class ProcessManagerApp:
             self.simulate_rr(index, quantum)
             return
 
-        if recursos_global.asignar(process.recursos_necesarios):
+        if recursos_global.asignar(process.recursos_necesarios) and self.available_cpus > 0:
+            self.available_resources -= process.recursos_necesarios
+            self.available_cpus -= 1
+            self.update_status_label()
             process.set_estado("RUNNING")
             self.update_tree_status(process.pid, "RUNNING")
 
@@ -307,6 +319,9 @@ class ProcessManagerApp:
             self.canvas.itemconfig(rect, fill="blue")
 
         recursos_global.liberar(process.recursos_necesarios)
+        self.available_resources += process.recursos_necesarios
+        self.available_cpus += 1
+        self.update_status_label()
         self.root.after(2000, self.simulate_rr, index + 1, quantum)
 
     def run_priority_simulation(self):
