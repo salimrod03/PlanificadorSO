@@ -19,7 +19,7 @@ def round_robin_scheduling(processes, quantum, recursos):
                 exec_time = min(quantum, process.tiempo_restante)
                 print(f"\nEjecutando proceso {process.pid}. \nEstado: {process.estado}. \nTiempo actual: {current_time}")
                 time.sleep(2)  
-                current_time += exec_time
+                current_time += exec_time 
                 process.tiempo_restante -= exec_time
                 
                 if process.tiempo_restante == 0:
